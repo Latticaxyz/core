@@ -3,9 +3,8 @@ name = "lattica-core"
 version = "0.1.0"
 description = " Lattica Protocol core contracts, deployed on Polygon, written in Vyper"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "titanoboa>=0.1.9",
-    "vyper>=0.4.3",
-    "vyper-lsp>=0.1.0",
+  "titanoboa>=0.1.9",
+  "vyper>=0.4.3",
 ]
