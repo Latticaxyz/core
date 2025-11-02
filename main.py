@@ -1,5 +1,5 @@
 def main():
-    print("Hello from lattica-core!")
+    print("Hello from core!")
 
 
 if __name__ == "__main__":
