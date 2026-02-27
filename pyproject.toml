@@ -1,14 +1,10 @@
 [project]
-name = "core"
+name = "lattica-core"
 version = "0.1.0"
-description = " Lattica Protocol core contracts, deployed on Polygon, written in Vyper"
+description = " Lattica Protocol core contracts"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-  "titanoboa>=0.1.9",
-  "vyper>=0.4.3",
-  "vyper-lsp",
-]
+dependencies = ["titanoboa>=0.1.9", "vyper>=0.4.3", "vyper-lsp"]
 
 [tool.uv.sources]
 vyper-lsp = { git = "https://github.com/vyperlang/vyper-lsp.git", rev = "main" }
