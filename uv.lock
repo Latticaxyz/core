@@ -258,14 +258,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.3.0"
+version = "8.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/46/61/de6cd827efad202d7057d93e0fed9294b96952e188f7384832791c7b2254/click-8.3.0.tar.gz", hash = "sha256:e7b8232224eba16f4ebe410c25ced9f7875cb5f3263ffc93cc3e8da705e229c4", size = 276943, upload-time = "2025-09-18T17:32:23.696Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/87/84326af34517fca8c58418d148f2403df25303e02736832403587318e9e8/click-8.1.3.tar.gz", hash = "sha256:7682dc8afb30297001674575ea00d1814d808d6a36af415a82bd481d37ba7b8e", size = 331147, upload-time = "2022-04-28T17:36:09.097Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/d3/9dcc0f5797f070ec8edf30fbadfb200e71d9db6b84d211e3b2085a7589a0/click-8.3.0-py3-none-any.whl", hash = "sha256:9b9f285302c6e3064f4330c05f05b81945b2a39544279343e6e7c5f27a9baddc", size = 107295, upload-time = "2025-09-18T17:32:22.42Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/f1/df59e28c642d583f7dacffb1e0965d0e00b218e0186d7858ac5233dce840/click-8.1.3-py3-none-any.whl", hash = "sha256:bb4d8133cb15a609f44e8213d9b391b0809795062913b383c62be0ee95b1db48", size = 96588, upload-time = "2022-04-28T17:36:06.952Z" },
 ]
 
 [[package]]
@@ -714,6 +714,12 @@ source = { virtual = "." }
 dependencies = [
     { name = "titanoboa" },
     { name = "vyper" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mamushi" },
+    { name = "pytest" },
     { name = "vyper-lsp" },
 ]
 
@@ -721,7 +727,19 @@ dependencies = [
 requires-dist = [
     { name = "titanoboa", specifier = ">=0.1.9" },
     { name = "vyper", specifier = ">=0.4.3" },
+<<<<<<< Updated upstream
     { name = "vyper-lsp", git = "https://github.com/vyperlang/vyper-lsp.git?rev=43116b3ca8e5a1f5a1c08adf448fd2d09daaf4dc" },
+||||||| Stash base
+    { name = "vyper-lsp", git = "https://github.com/vyperlang/vyper-lsp.git?rev=main" },
+=======
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mamushi" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "vyper-lsp", git = "https://github.com/vyperlang/vyper-lsp.git?rev=main" },
+>>>>>>> Stashed changes
 ]
 
 [[package]]
@@ -756,6 +774,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9d/f6/6e80484ec078d0b50699ceb1833597b792a6c695f90c645fbaf54b947e6f/lsprotocol-2023.0.1.tar.gz", hash = "sha256:cc5c15130d2403c18b734304339e51242d3018a05c4f7d0f198ad6e0cd21861d", size = 69434, upload-time = "2024-01-09T17:21:12.625Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8d/37/2351e48cb3309673492d3a8c59d407b75fb6630e560eb27ecd4da03adc9a/lsprotocol-2023.0.1-py3-none-any.whl", hash = "sha256:c75223c9e4af2f24272b14c6375787438279369236cd568f596d4951052a60f2", size = 70826, upload-time = "2024-01-09T17:21:14.491Z" },
+]
+
+[[package]]
+name = "mamushi"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "lark" },
+    { name = "mypy-extensions" },
+    { name = "pathspec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/0c/ffc9868dd8e644044cb67be9f51f49c1c904ab17d079d6b5775b372c5224/mamushi-0.1.0.tar.gz", hash = "sha256:2762ccd85d53ab16806604b957fe8d205b43995343149fc5bd1dd58cf30ec65a", size = 47248, upload-time = "2025-12-10T13:57:11.421Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/57/d12e24abfcbd3de4773025278b68070d6243505e814b6cf7c5203fdbeb55/mamushi-0.1.0-py3-none-any.whl", hash = "sha256:6add1da3678ce36b39e28f098bf4a6cbb0d05f7de112f6766cd56958bec41083", size = 49606, upload-time = "2025-12-10T13:57:07.92Z" },
 ]
 
 [[package]]
@@ -927,6 +960,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/79/9b/9b4c96d6593b2a541e1cb8b34899a6d021d208bb357042823d4d2cabdbe7/mkdocs_material_extensions-1.3.1.tar.gz", hash = "sha256:10c9511cea88f568257f960358a467d12b970e1f7b2c0e5fb2bb48cab1928443", size = 11847, upload-time = "2023-11-22T19:09:45.208Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/54/662a4743aa81d9582ee9339d4ffa3c8fd40a4965e033d77b9da9774d3960/mkdocs_material_extensions-1.3.1-py3-none-any.whl", hash = "sha256:adff8b62700b25cb77b53358dad940f3ef973dd6db797907c49e3c2ef3ab4e31", size = 8728, upload-time = "2023-11-22T19:09:43.465Z" },
+]
+
+[[package]]
+name = "mypy-extensions"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
 ]
 
 [[package]]
