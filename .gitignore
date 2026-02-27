@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Venv
+.venv/
+venv/
+
+# Titanoboa
+.titanoboa_cache/
+
+# Build
+build/
+artifacts/
+cache/
+
+# Testing
+.pytest_cache/
+.hypothesis/
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Env var 
+.env
+.env.local
+
+# Misc
+.DS_Store
+
