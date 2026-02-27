@@ -2,31 +2,35 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Venv
+# venv
 .venv/
 venv/
 
-# Titanoboa
+# titanoboa
 .titanoboa_cache/
 
-# Build
+# build
 build/
 artifacts/
 cache/
 
-# Testing
+# testing
 .pytest_cache/
 .hypothesis/
 
-# Coverage
+# coverage
 htmlcov/
 .coverage
 coverage.xml
 
-# Env var 
+# env var 
 .env
 .env.local
 
-# Misc
+# misc
 .DS_Store
+digest.txt
 
+# claude
+.claude/
+CLAUDE.md
