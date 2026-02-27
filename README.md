@@ -1,1 +1,1 @@
-# Lattica Core Contracts
+# core
