@@ -1,0 +1,14 @@
+network_name: polygon
+chain_id: 137
+layer: L2
+
+ctf: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
+ctf_exchange: "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+neg_risk_adapter: "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"
+neg_risk_ctf_exchange: "0xC5d563A36AE78145C45a50134d48A1215220f80a"
+
+usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+
+uma_oracle: "0xA1E4380A403c87681037FAb25e04D356e651b2C6"
+
+dao: {}
