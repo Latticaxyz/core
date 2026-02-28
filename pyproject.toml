@@ -4,10 +4,10 @@ version = "0.1.0"
 description = " Lattica core contracts"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["titanoboa>=0.1.9", "vyper>=0.4.3"]
+dependencies = ["eth_account", "titanoboa>=0.1.9", "vyper>=0.4.3"]
 
 [dependency-groups]
-dev = ["mamushi", "pytest>=8.0", "vyper-lsp"]
+dev = ["mamushi", "pytest", "types-PyYAML", "vyper-lsp"]
 
 [tool.mamushi]
 line_length = 100
