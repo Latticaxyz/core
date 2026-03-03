@@ -58,12 +58,46 @@ def deploy(chain_name: str | None) -> None:
         boa.env.add_account(account)
         boa.env.eoa = account.address
 
-    # TODO: Deploy sequence
-    # 1. InterestRateModel
-    # 2. OracleAdapter (configured with CTF address from chain config)
-    # 3. CollateralManager (configured with CTF, oracle)
-    # 4. Vault (configured with USDC, collateral manager, interest model)
-    # 5. Liquidator (configured with vault, collateral manager, oracle)
+    # Deploy sequence (6 contracts, no on-chain gasless contract):
+    #
+    # 1. EpochManager(admin, default_epoch_duration, resolution_cutoff_buffer)
+    #    - Admin-gated market registry. Markets must be onboarded before
+    #      any other contract will accept their conditionId.
+    #    - Per-market params: collateral_factor, max_exposure_cap,
+    #      min_liquidity_depth, resolution_time → cutoff.
+    # 2. PremiumOracle(authorized_pricer=backend_wallet, reveal_delay=N)
+    #    - Premiums go to pool's premium reserve, not to lenders.
+    # 3. PriceFeed(authorized_updater=backend_wallet, deviation_threshold, staleness_limit, circuit_breaker_threshold)
+    # 4. CollateralManager(ctf, epoch_manager, price_feed)
+    #    - Reads collateral_factor + max_exposure_cap from EpochManager.
+    # 5. LendingPool(usdc_e, epoch_manager, premium_oracle, collateral_manager, fixed_interest_rate_bps)
+    #    - Three-part accounting: available liquidity, accrued interest
+    #      (→ lender yield), premium reserve (→ risk buffer).
+    #    - fixed_interest_rate_bps set by governance (can be updated).
+    # 6. Liquidator(pool, collateral_manager, price_feed, ctf_exchange, neg_risk_ctf_exchange)
+    #    - Shortfalls covered from premium reserve.
+    #
+    # Wire permissions:
+    #    - pool → collateral_manager (can seize on liquidation)
+    #    - liquidator → collateral_manager (can seize)
+    #    - liquidator → pool (can return recovered USDC.e)
+    #    - liquidator needs ERC1155 approval on CTF for ctf_exchange
+    #    - liquidator needs ERC1155 approval on CTF for neg_risk_ctf_exchange
+    #
+    # Gasless: NOT deployed on-chain. The backend routes user txs through
+    # Polymarket's Builder Relayer (https://relayer-v2.polymarket.com/)
+    # using HMAC auth with POLY_BUILDER_API_KEY / SECRET / PASSPHRASE.
+    # Users interact via Safe wallets deployed through the relayer.
+    #
+    # USER-SIDE APPROVALS (batched during session setup, via RelayClient):
+    # These are NOT done in this deploy script — they happen per-user in
+    # the frontend when a user first connects. Added to the standard
+    # Polymarket approval batch:
+    #    - USDC.e → LendingPool (so pool can pull USDC.e for deposits)
+    #    - USDC.e → CollateralManager (so CM can pull premium payments)
+    #    - CTF (ERC1155) → CollateralManager (so CM can pull collateral)
+    # These are appended to the standard Polymarket approvals (CTF Exchange,
+    # NegRisk Exchange, NegRisk Adapter) in a single batch tx.
     print("(contracts not implemented yet)")
 
     # if chain_name:
