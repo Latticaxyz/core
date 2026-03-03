@@ -1,0 +1,8 @@
+# @version ^0.4.3
+
+"""
+@title IPriceFeed
+@notice Swappable interface for outcome token price feeds.
+        If a third-party oracle (Chainlink, Pyth, UMA) ever supports
+        CTF tokens, swap the implementation behind this interface.
+"""
