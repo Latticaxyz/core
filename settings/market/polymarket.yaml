@@ -21,23 +21,23 @@ polygon:
   relayer: "https://relayer-v2.polymarket.com/"
   clob_api: "https://clob.polymarket.com"
 
-# Safe wallet infrastructure
-# safe_factory: "0x..." # obtained from SDK at runtime via getContractConfig(137)
+  # Safe wallet infrastructure
+  # safe_factory: "0x..." # obtained from SDK at runtime via getContractConfig(137)
 
-# Token approvals (Safe must approve these before trading)
-# ERC20 (USDC.e) approve() targets:
-#   - CTF:                  0x4D97DCd97eC945f40cF65F87097ACe5EA0476045
-#   - CTF Exchange:         0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E
-#   - NegRisk CTF Exchange: 0xC5d563A36AE78145C45a50134d48A1215220f80a
-#   - NegRisk Adapter:      0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
-#   - LendingPool:          (deployed — from deployments/polygon.yaml)
-#   - CollateralManager:    (deployed — from deployments/polygon.yaml)
-#
-# ERC1155 (CTF) setApprovalForAll() targets:
-#   - CTF Exchange:         0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E
-#   - NegRisk CTF Exchange: 0xC5d563A36AE78145C45a50134d48A1215220f80a
-#   - NegRisk Adapter:      0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
-#   - CollateralManager:    (deployed — from deployments/polygon.yaml)
+  # Token approvals (Safe must approve these before trading)
+  # ERC20 (USDC.e) approve() targets:
+  #   - CTF:                  0x4D97DCd97eC945f40cF65F87097ACe5EA0476045
+  #   - CTF Exchange:         0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E
+  #   - NegRisk CTF Exchange: 0xC5d563A36AE78145C45a50134d48A1215220f80a
+  #   - NegRisk Adapter:      0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
+  #   - LendingPool:          (deployed — from deployments/polygon.yaml)
+  #   - CollateralManager:    (deployed — from deployments/polygon.yaml)
+  #
+  # ERC1155 (CTF) setApprovalForAll() targets:
+  #   - CTF Exchange:         0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E
+  #   - NegRisk CTF Exchange: 0xC5d563A36AE78145C45a50134d48A1215220f80a
+  #   - NegRisk Adapter:      0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296
+  #   - CollateralManager:    (deployed — from deployments/polygon.yaml)
 
 amoy:
   ctf: ""

@@ -6,7 +6,7 @@ polygon:
   # kinked curve: rate = base_rate + utilization * slope1  (below optimal)
   #               rate = base_rate + optimal * slope1 + (utilization - optimal) * slope2  (above optimal)
   interest_base_rate_bps: 50
-  interest_optimal_utilization_bps: 80
+  interest_optimal_utilization_bps: 8000
   interest_slope1_bps: 400
   interest_slope2_bps: 7500
 
