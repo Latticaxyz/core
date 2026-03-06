@@ -75,62 +75,51 @@ def deploy(chain, market):
         f"  Cutoff:   {lattica_cfg.get('resolution_cutoff_buffer', 'N/A')}s before resolution"
     )
 
-    # Deploy sequence (6 contracts):
-    #
-    # Config sources:
-    #   chain:   usdc_e
-    #   market:  ctf, ctf_exchange, neg_risk_ctf_exchange, relayer
-    #   lattica: epoch duration, cutoff buffer, interest curve, price feed
-    #
-    # 1. EpochManager(admin, default_epoch_duration, resolution_cutoff_buffer)
-    #    - Admin-gated market registry. Markets must be onboarded before
-    #      any other contract will accept their conditionId.
-    #    - Per-market params: collateral_factor, max_exposure_cap,
-    #      min_liquidity_depth, resolution_time → cutoff.
-    # 2. PremiumOracle(authorized_pricer=backend_wallet, reveal_delay=N)
-    #    - Premiums go to pool's premium reserve, not to lenders.
-    # 3. PriceFeed(authorized_updater=backend_wallet, deviation_threshold, staleness_limit, circuit_breaker_threshold)
-    # 4. CollateralManager(ctf, epoch_manager, price_feed)
-    #    - ctf address from market config.
-    #    - Reads collateral_factor + max_exposure_cap from EpochManager.
-    # 5. LendingPool(usdc_e, epoch_manager, premium_oracle, collateral_manager, curve_params)
-    #    - usdc_e from chain config. curve_params from lattica config.
-    #    - Three-part accounting: available liquidity, accrued interest
-    #      (→ lender yield), premium reserve (→ risk buffer).
-    #    - Interest rate: utilization curve (base_rate, optimal_utilization,
-    #      slope1, slope2). Governance-tunable params, market-driven rate.
-    # 6. Liquidator(pool, collateral_manager, price_feed, ctf_exchange, neg_risk_ctf_exchange)
-    #    - Exchange addresses from market config.
-    #    - Shortfalls covered from premium reserve.
-    #
-    # Wire permissions:
-    #    - pool → collateral_manager (can seize on liquidation)
-    #    - liquidator → collateral_manager (can seize)
-    #    - liquidator → pool (can return recovered USDC.e)
-    #    - liquidator needs ERC1155 approval on CTF for ctf_exchange
-    #    - liquidator needs ERC1155 approval on CTF for neg_risk_ctf_exchange
-    #
-    # Gasless: NOT deployed on-chain. The backend routes user txs through
-    # the market's relayer using HMAC auth with Builder credentials.
-    # Users interact via Safe wallets deployed through the relayer.
-    #
-    # USER-SIDE APPROVALS (batched during session setup, via RelayClient):
-    # These are NOT done in this deploy script — they happen per-user in
-    # the frontend when a user first connects. Added to the standard
-    # market approval batch:
-    #    - USDC.e → LendingPool (so pool can pull USDC.e for deposits)
-    #    - USDC.e → CollateralManager (so CM can pull premium payments)
-    #    - CTF (ERC1155) → CollateralManager (so CM can pull collateral)
-    print("(contracts not implemented yet)")
+    address_provider = boa.load("contracts/registry/AddressProvider.vy")
+    market_registry = boa.load("contracts/market/MarketRegistry.vy")
+    interest_model = boa.load(
+        "contracts/lending/InterestRateModel.vy",
+        lattica_cfg["interest_base_rate_bps"],
+        lattica_cfg["interest_optimal_utilization_bps"],
+        lattica_cfg["interest_slope1_bps"],
+        lattica_cfg["interest_slope2_bps"],
+    )
+    pool_views = boa.load("contracts/lending/LendingPoolViews.vy")
 
-    # save_deployment(chain_name, {
-    #     "lending_pool": str(pool.address),
-    #     "epoch_manager": str(epoch.address),
-    #     "premium_oracle": str(oracle.address),
-    #     "price_feed": str(pf.address),
-    #     "collateral_manager": str(cm.address),
-    #     "liquidator": str(liq.address),
-    # })
+    pf_bp = boa.load_partial("contracts/oracle/pricefeed/PriceFeed.vy").deploy_as_blueprint()
+    po_bp = boa.load_partial("contracts/oracle/premium/PremiumOracle.vy").deploy_as_blueprint()
+    cm_bp = boa.load_partial("contracts/collateral/CollateralManager.vy").deploy_as_blueprint()
+    lp_bp = boa.load_partial("contracts/lending/LendingPool.vy").deploy_as_blueprint()
+    liq_bp = boa.load_partial("contracts/liquidation/Liquidator.vy").deploy_as_blueprint()
+
+    pf_factory = boa.load("contracts/oracle/pricefeed/factory/PriceFeedFactory.vy", pf_bp.address)
+    po_factory = boa.load("contracts/oracle/premium/factory/PremiumOracleFactory.vy", po_bp.address)
+    cm_factory = boa.load("contracts/collateral/factory/CollateralManagerFactory.vy", cm_bp.address)
+    lp_factory = boa.load("contracts/lending/factory/LendingPoolFactory.vy", lp_bp.address)
+    liq_factory = boa.load("contracts/liquidation/factory/LiquidatorFactory.vy", liq_bp.address)
+
+    address_provider.set_address(0, lp_factory.address)
+    address_provider.set_address(1, cm_factory.address)
+    address_provider.set_address(2, liq_factory.address)
+    address_provider.set_address(3, pf_factory.address)
+    address_provider.set_address(4, po_factory.address)
+    address_provider.set_address(5, market_registry.address)
+    address_provider.set_address(6, interest_model.address)
+    address_provider.set_address(7, pool_views.address)
+    address_provider.set_address(8, chain_cfg["usdc_e"])
+    address_provider.set_address(9, market_cfg[chain]["ctf"])
+
+    save_deployment(chain, {
+        "address_provider": str(address_provider.address),
+        "market_registry": str(market_registry.address),
+        "interest_rate_model": str(interest_model.address),
+        "lending_pool_views": str(pool_views.address),
+        "lending_pool_factory": str(lp_factory.address),
+        "collateral_manager_factory": str(cm_factory.address),
+        "liquidator_factory": str(liq_factory.address),
+        "price_feed_factory": str(pf_factory.address),
+        "premium_oracle_factory": str(po_factory.address),
+    })
 
 
 if __name__ == "__main__":
