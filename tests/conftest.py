@@ -1,7 +1,10 @@
 import boa
 import pytest
+from eth_utils import keccak
 
-# accounts
+
+POOL_ROLE: bytes = keccak(b"POOL_ROLE")
+LIQUIDATOR_ROLE: bytes = keccak(b"LIQUIDATOR_ROLE")
 
 
 @pytest.fixture(scope="session")
@@ -13,8 +16,6 @@ def deployer():
 
 @pytest.fixture(scope="session")
 def pricer():
-    """Authorized backend wallet that commits/reveals WARBIRD premiums
-    and pushes PriceFeed updates."""
     acc = boa.env.generate_address("pricer")
     boa.env.set_balance(acc, 10 * 10**18)
     return acc
@@ -35,13 +36,10 @@ def borrower():
 
 
 @pytest.fixture(scope="session")
-def liquidator():
+def liquidator_account():
     acc = boa.env.generate_address("liquidator")
     boa.env.set_balance(acc, 10 * 10**18)
     return acc
-
-
-# EVM isolation
 
 
 @pytest.fixture(autouse=True)
@@ -50,44 +48,170 @@ def isolate():
         yield
 
 
-# TODO:
-# mock tokens & contracts
-#
-# - mock USDC.e (ERC20, 6 decimals)
-# - mock ConditionalTokens (ERC1155 CTF)
-#     - prepareCondition()
-#     - splitPosition() → mint YES/NO tokens
-#     - mergePositions() → burn YES+NO → USDC.e
-# - mock CTF Exchange (orderbook — accepts sells, returns USDC.e)
-# - mock PriceFeed with set_price(conditionId, price) helper
-# - mock PremiumOracle with set_premium(conditionId, epoch, bps) helper
-#
-# time travel helpers
-#
-# - advance_time(seconds) → fast-forward block timestamp
-# - advance_to_cutoff(conditionId) → jump to resolution cutoff
-# - advance_epoch() → jump to next epoch boundary
-#
-# market helpers
-#
-# - onboard_market(conditionId, resolution_time, collateral_factor,
-#     max_exposure_cap, min_liquidity_depth) → admin registers
-#     market in EpochManager, making it available for lending
-# - create_market(conditionId, resolution_time) → sets up CTF
-#   condition + mints YES/NO tokens for borrower + registers
-#   cutoff in EpochManager
-#
-# wallet context
-#
-# In production, all user addresses are Safe wallets (Gnosis Safe).
-# In tests, we use plain EOAs which is equivalent because:
-# - The Builder Relayer submits standard txs FROM the Safe
-# - Contracts see msg.sender = Safe address
-# - We test with EOAs that behave identically at the contract level
-# - Safe-specific behavior (deployment, approval batching) is
-#   off-chain frontend logic, not contract logic
-#
-# For integration tests that need to simulate existing Polymarket
-# positions (Path A: "Connect Wallet"), the borrower fixture is
-# pre-funded with CTF tokens via splitPosition() in the market
-# helper — this simulates a user who already holds positions.
+@pytest.fixture(scope="session")
+def condition_id():
+    return b"\xab" * 32
+
+
+@pytest.fixture(scope="session")
+def token_id():
+    return 1
+
+
+@pytest.fixture()
+def mock_usdc(deployer):
+    with boa.env.prank(deployer):
+        return boa.load("tests/mocks/MockERC20.vy")
+
+
+@pytest.fixture()
+def mock_ctf(deployer):
+    with boa.env.prank(deployer):
+        return boa.load("tests/mocks/MockERC1155.vy")
+
+
+@pytest.fixture()
+def address_provider(deployer):
+    with boa.env.prank(deployer):
+        return boa.load("contracts/registry/AddressProvider.vy")
+
+
+@pytest.fixture()
+def market_registry(deployer):
+    with boa.env.prank(deployer):
+        return boa.load("contracts/market/MarketRegistry.vy")
+
+
+@pytest.fixture()
+def interest_rate_model(deployer):
+    with boa.env.prank(deployer):
+        return boa.load(
+            "contracts/lending/InterestRateModel.vy",
+            50,
+            8000,
+            400,
+            7500,
+        )
+
+
+@pytest.fixture()
+def price_feed(deployer, pricer, condition_id):
+    with boa.env.prank(deployer):
+        return boa.load(
+            "contracts/oracle/pricefeed/PriceFeed.vy",
+            condition_id,
+            pricer,
+            200,
+            3600,
+            3000,
+            600,
+        )
+
+
+@pytest.fixture()
+def premium_oracle(deployer, pricer, condition_id):
+    with boa.env.prank(deployer):
+        return boa.load(
+            "contracts/oracle/premium/PremiumOracle.vy",
+            condition_id,
+            pricer,
+            1,
+        )
+
+
+@pytest.fixture()
+def collateral_manager(deployer, condition_id, mock_ctf, price_feed, market_registry):
+    with boa.env.prank(deployer):
+        return boa.load(
+            "contracts/collateral/CollateralManager.vy",
+            condition_id,
+            mock_ctf.address,
+            price_feed.address,
+            market_registry.address,
+        )
+
+
+@pytest.fixture()
+def lending_pool(
+    deployer,
+    condition_id,
+    mock_usdc,
+    collateral_manager,
+    premium_oracle,
+    interest_rate_model,
+    market_registry,
+):
+    with boa.env.prank(deployer):
+        pool = boa.load(
+            "contracts/lending/LendingPool.vy",
+            condition_id,
+            mock_usdc.address,
+            collateral_manager.address,
+            premium_oracle.address,
+            interest_rate_model.address,
+            market_registry.address,
+            604800,
+        )
+        collateral_manager.grantRole(POOL_ROLE, pool.address)
+    return pool
+
+
+@pytest.fixture()
+def liquidator_contract(
+    deployer,
+    condition_id,
+    lending_pool,
+    collateral_manager,
+    price_feed,
+    mock_usdc,
+    mock_ctf,
+    liquidator_account,
+):
+    with boa.env.prank(deployer):
+        liq = boa.load(
+            "contracts/liquidation/Liquidator.vy",
+            condition_id,
+            lending_pool.address,
+            collateral_manager.address,
+            price_feed.address,
+            mock_usdc.address,
+            mock_ctf.address,
+            500,
+        )
+        collateral_manager.grantRole(LIQUIDATOR_ROLE, liq.address)
+        lending_pool.grantRole(LIQUIDATOR_ROLE, liq.address)
+    return liq
+
+
+@pytest.fixture()
+def setup_market(deployer, market_registry, condition_id):
+    resolution_time = 2_000_000_000
+    with boa.env.prank(deployer):
+        market_registry.onboard_market(
+            condition_id,
+            resolution_time,
+            7000,
+            500_000 * 10**6,
+            100_000 * 10**6,
+        )
+    return resolution_time
+
+
+@pytest.fixture()
+def funded_lender(mock_usdc, lender, lending_pool, deployer):
+    amount = 1_000_000 * 10**6
+    with boa.env.prank(deployer):
+        mock_usdc.mint(lender, amount)
+    with boa.env.prank(lender):
+        mock_usdc.approve(lending_pool.address, amount)
+    return amount
+
+
+@pytest.fixture()
+def funded_borrower(mock_ctf, borrower, collateral_manager, token_id, deployer):
+    amount = 1000 * 10**18
+    with boa.env.prank(deployer):
+        mock_ctf.mint(borrower, token_id, amount)
+    with boa.env.prank(borrower):
+        mock_ctf.setApprovalForAll(collateral_manager.address, True)
+    return amount
