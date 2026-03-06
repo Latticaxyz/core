@@ -25,7 +25,6 @@ def test_deposit_collateral(
     assert pos[0] == deposit_amount
     assert pos[1] == token_id
     assert pos[2] == 0
-    assert pos[3] == 0
     assert collateral_manager.total_collateral() == deposit_amount
 
 
@@ -106,7 +105,7 @@ def test_set_debt(
         collateral_manager.set_debt(borrower, debt_amount)
 
     pos = collateral_manager.positions(borrower)
-    assert pos[3] == debt_amount
+    assert pos[2] == debt_amount
 
 
 def test_get_health_factor_no_position(collateral_manager, borrower):

@@ -22,6 +22,7 @@ def test_deploy_pool(
             interest_rate_model.address,
             market_registry.address,
             price_feed.address,
+            86400,
             604800,
         )
     assert pool_addr != "0x" + "00" * 20
@@ -45,6 +46,7 @@ def test_deploy_pool_non_owner_reverts(
                 interest_rate_model.address,
                 market_registry.address,
                 price_feed.address,
+                86400,
                 604800,
             )
 
@@ -63,6 +65,7 @@ def test_deploy_pool_duplicate_reverts(
             interest_rate_model.address,
             market_registry.address,
             price_feed.address,
+            86400,
             604800,
         )
 
@@ -76,6 +79,7 @@ def test_deploy_pool_duplicate_reverts(
                 interest_rate_model.address,
                 market_registry.address,
                 price_feed.address,
+                86400,
                 604800,
             )
 
