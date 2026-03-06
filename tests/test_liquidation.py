@@ -74,9 +74,6 @@ def test_is_liquidatable_expired_epoch(
     with boa.env.prank(borrower):
         lending_pool.borrow(borrow_amount, borrower)
 
-    with boa.env.prank(lending_pool.address):
-        collateral_manager.set_debt(borrower, borrow_amount)
-
     boa.env.time_travel(seconds=604800 + 1)
 
     assert liquidator_contract.is_liquidatable(borrower) is True
@@ -165,9 +162,6 @@ def test_liquidate(
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
         lending_pool.borrow(borrow_amount, borrower)
-
-    with boa.env.prank(lending_pool.address):
-        collateral_manager.set_debt(borrower, borrow_amount)
 
     boa.env.time_travel(seconds=604800 + 1)
     assert liquidator_contract.is_liquidatable(borrower) is True
