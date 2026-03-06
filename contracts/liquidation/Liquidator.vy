@@ -19,6 +19,7 @@ interface ILendingPool:
     def loans(_borrower: address) -> (uint256, uint256, uint256, uint256, uint256, uint256, bool): view
     def handle_liquidation_proceeds(_borrower: address, _recovered: uint256): nonpayable
     def current_epoch() -> uint256: view
+    # epoch_state is a flag type in LendingPool, represented as uint256 in cross-contract calls
     def epoch_state() -> uint256: view
 
 interface ICollateralManager:
@@ -86,6 +87,7 @@ def __init__(
     self.liquidation_fee_bps = _liquidation_fee_bps
 
 
+@nonreentrant
 @external
 def liquidate(borrower: address):
     assert self._is_liquidatable(borrower), "not liquidatable"
