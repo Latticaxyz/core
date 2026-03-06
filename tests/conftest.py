@@ -152,9 +152,11 @@ def lending_pool(
             interest_rate_model.address,
             market_registry.address,
             price_feed.address,
+            86400,
             604800,
         )
         collateral_manager.grantRole(POOL_ROLE, pool.address)
+        premium_oracle.set_authorized_pool(pool.address)
     return pool
 
 

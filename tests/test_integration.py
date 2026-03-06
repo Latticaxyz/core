@@ -8,14 +8,14 @@ POOL_ROLE: bytes = keccak(b"POOL_ROLE")
 LIQUIDATOR_ROLE: bytes = keccak(b"LIQUIDATOR_ROLE")
 
 
-def setup_premium(premium_oracle, pricer, epoch, premium_bps=200):
+def setup_premium(premium_oracle, pricer, borrower, premium_bps=200):
     salt = b"\x01" * 32
     commitment = keccak256(abi_encode(["uint256", "bytes32"], [premium_bps, salt]))
     with boa.env.prank(pricer):
-        premium_oracle.commit(epoch, commitment)
+        premium_oracle.commit(borrower, commitment)
     boa.env.time_travel(seconds=15)
     with boa.env.prank(pricer):
-        premium_oracle.reveal(epoch, premium_bps, salt)
+        premium_oracle.reveal(borrower, premium_bps, salt)
 
 
 def test_full_lending_cycle(
@@ -34,7 +34,7 @@ def test_full_lending_cycle(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -54,14 +54,14 @@ def test_full_lending_cycle(
     borrow_amount = 10_000 * 10**6
     borrower_usdc_before = mock_usdc.balanceOf(borrower)
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     loan = lending_pool.loans(borrower)
     principal = loan[0]
     interest_paid = loan[1]
     premium_paid = loan[2]
     assert principal == borrow_amount
-    assert loan[6] is True
+    assert loan[5] is True
 
     net = borrow_amount - interest_paid - premium_paid
     assert mock_usdc.balanceOf(borrower) == borrower_usdc_before + net
@@ -77,7 +77,7 @@ def test_full_lending_cycle(
         lending_pool.repay(borrower)
 
     loan_after = lending_pool.loans(borrower)
-    assert loan_after[6] is False
+    assert loan_after[5] is False
     assert lending_pool.total_borrowed() == 0
     assert mock_ctf.balanceOf(borrower, token_id) == funded_borrower
 
@@ -100,7 +100,7 @@ def test_liquidation_cycle(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -115,7 +115,7 @@ def test_liquidation_cycle(
 
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     boa.env.time_travel(seconds=604800 + 1)
     assert liquidator_contract.is_liquidatable(borrower) is True
@@ -138,7 +138,7 @@ def test_liquidation_cycle(
         liquidator_contract.liquidate(borrower)
 
     loan = lending_pool.loans(borrower)
-    assert loan[6] is False
+    assert loan[5] is False
     assert lending_pool.total_borrowed() == 0
 
     assert mock_ctf.balanceOf(liquidator_account, token_id) == collateral_amount
@@ -163,7 +163,7 @@ def test_share_value_increases_with_interest(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -180,7 +180,7 @@ def test_share_value_increases_with_interest(
 
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     share_value_after = lending_pool.get_share_value(10**6)
 

@@ -8,14 +8,14 @@ POOL_ROLE: bytes = keccak(b"POOL_ROLE")
 LIQUIDATOR_ROLE: bytes = keccak(b"LIQUIDATOR_ROLE")
 
 
-def setup_premium(premium_oracle, pricer, epoch, premium_bps=200):
+def setup_premium(premium_oracle, pricer, borrower, premium_bps=200):
     salt = b"\x01" * 32
     commitment = keccak256(abi_encode(["uint256", "bytes32"], [premium_bps, salt]))
     with boa.env.prank(pricer):
-        premium_oracle.commit(epoch, commitment)
+        premium_oracle.commit(borrower, commitment)
     boa.env.time_travel(seconds=15)
     with boa.env.prank(pricer):
-        premium_oracle.reveal(epoch, premium_bps, salt)
+        premium_oracle.reveal(borrower, premium_bps, salt)
 
 
 def test_initial_state(
@@ -57,7 +57,7 @@ def test_is_liquidatable_expired_epoch(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -72,7 +72,7 @@ def test_is_liquidatable_expired_epoch(
 
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     boa.env.time_travel(seconds=604800 + 1)
 
@@ -98,7 +98,7 @@ def test_is_liquidatable_health_below_threshold(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -113,7 +113,7 @@ def test_is_liquidatable_health_below_threshold(
 
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     debt_value = 5 * 10**18
     with boa.env.prank(lending_pool.address):
@@ -146,7 +146,7 @@ def test_liquidate(
     funded_lender,
     funded_borrower,
 ):
-    setup_premium(premium_oracle, pricer, 1)
+    setup_premium(premium_oracle, pricer, borrower)
 
     with boa.env.prank(pricer):
         price_feed.push_price(7 * 10**17)
@@ -161,7 +161,7 @@ def test_liquidate(
 
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
-        lending_pool.borrow(borrow_amount, borrower)
+        lending_pool.borrow(borrow_amount, borrower, 604800)
 
     boa.env.time_travel(seconds=604800 + 1)
     assert liquidator_contract.is_liquidatable(borrower) is True
@@ -182,7 +182,7 @@ def test_liquidate(
         liquidator_contract.liquidate(borrower)
 
     loan = lending_pool.loans(borrower)
-    assert loan[6] is False
+    assert loan[5] is False
 
     assert mock_ctf.balanceOf(liquidator_account, token_id) == collateral_amount
     assert mock_ctf.balanceOf(collateral_manager.address, token_id) == 0
