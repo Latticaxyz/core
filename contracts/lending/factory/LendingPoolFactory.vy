@@ -43,6 +43,7 @@ def deploy_pool(
     premium_oracle: address,
     interest_rate_model: address,
     market_registry: address,
+    price_feed: address,
     epoch_duration: uint256,
 ) -> address:
     ownable._check_owner()
@@ -56,6 +57,7 @@ def deploy_pool(
         premium_oracle,
         interest_rate_model,
         market_registry,
+        price_feed,
         epoch_duration,
         code_offset=3,
     )

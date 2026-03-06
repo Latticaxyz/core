@@ -32,6 +32,10 @@ interface IPremiumOracle:
 interface IInterestRateModel:
     def get_rate(_utilization_bps: uint256) -> uint256: view
 
+interface IPriceFeed:
+    def get_price() -> (uint256, bool): view
+    def is_circuit_breaker_active() -> bool: view
+
 interface IMarketRegistry:
     def get_market_params(_condition_id: bytes32) -> (uint256, uint256, uint256, uint256, uint256, bool, bool): view
     def get_cutoff(_condition_id: bytes32) -> uint256: view
@@ -92,6 +96,7 @@ collateral_manager: public(address)
 premium_oracle: public(address)
 interest_rate_model: public(address)
 market_registry: public(address)
+price_feed: public(address)
 total_deposits: public(uint256)
 total_borrowed: public(uint256)
 premium_reserve: public(uint256)
@@ -112,6 +117,7 @@ def __init__(
     _premium_oracle: address,
     _interest_rate_model: address,
     _market_registry: address,
+    _price_feed: address,
     _epoch_duration: uint256,
 ):
     access_control.__init__()
@@ -120,6 +126,7 @@ def __init__(
     assert _premium_oracle != empty(address), "empty premium_oracle"
     assert _interest_rate_model != empty(address), "empty interest_rate_model"
     assert _market_registry != empty(address), "empty market_registry"
+    assert _price_feed != empty(address), "empty price_feed"
     assert _epoch_duration > 0, "zero epoch_duration"
     self.condition_id = _condition_id
     self.usdc_e = _usdc_e
@@ -127,12 +134,14 @@ def __init__(
     self.premium_oracle = _premium_oracle
     self.interest_rate_model = _interest_rate_model
     self.market_registry = _market_registry
+    self.price_feed = _price_feed
     self.epoch_duration = _epoch_duration
     self.current_epoch = 1
     self.epoch_start = block.timestamp
     self.epoch_state = EpochState.OPEN
 
 
+@nonreentrant
 @external
 def deposit(amount: uint256):
     assert amount > 0, "zero amount"
@@ -152,6 +161,7 @@ def deposit(amount: uint256):
     log Deposit(lender=msg.sender, amount=amount, shares=new_shares)
 
 
+@nonreentrant
 @external
 def withdraw(share_amount: uint256):
     assert share_amount > 0, "zero shares"
@@ -166,6 +176,7 @@ def withdraw(share_amount: uint256):
     log Withdraw(lender=msg.sender, amount=value, shares=share_amount)
 
 
+@nonreentrant
 @external
 def borrow(amount: uint256, borrower: address):
     assert self.epoch_state == EpochState.OPEN, "not open"
@@ -183,6 +194,13 @@ def borrow(amount: uint256, borrower: address):
     assert params[5], "market not active"
     assert not params[6], "market paused"
     assert self.total_borrowed + amount <= params[1], "exposure cap exceeded"
+
+    price: uint256 = 0
+    is_stale: bool = False
+    price, is_stale = staticcall IPriceFeed(self.price_feed).get_price()
+    assert not is_stale, "price is stale"
+    assert price > 0, "no price"
+    assert not staticcall IPriceFeed(self.price_feed).is_circuit_breaker_active(), "circuit breaker active"
 
     available: uint256 = self.total_deposits - self.total_borrowed
     assert amount <= available, "insufficient liquidity"
@@ -220,6 +238,10 @@ def borrow(amount: uint256, borrower: address):
         is_active=True,
     )
 
+    extcall ICollateralManager(self.collateral_manager).set_debt(borrower, amount)
+    health: uint256 = staticcall ICollateralManager(self.collateral_manager).get_health_factor(borrower)
+    assert health >= 10000, "undercollateralized"
+
     extcall IERC20(self.usdc_e).transfer(borrower, net)
     log Borrow(
         borrower=borrower,
@@ -230,6 +252,7 @@ def borrow(amount: uint256, borrower: address):
     )
 
 
+@nonreentrant
 @external
 def repay(borrower: address):
     loan: Loan = self.loans[borrower]
@@ -241,6 +264,7 @@ def repay(borrower: address):
     log Repay(borrower=borrower, amount=loan.principal)
 
 
+@nonreentrant
 @external
 def handle_liquidation_proceeds(borrower: address, recovered: uint256):
     access_control._check_role(LIQUIDATOR_ROLE, msg.sender)
