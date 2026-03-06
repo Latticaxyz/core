@@ -22,8 +22,36 @@ def do_deposit(lending_pool, lender, amount):
         lending_pool.deposit(amount)
 
 
-def do_borrow(lending_pool, deployer, borrower, amount):
+def setup_borrow_prerequisites(
+    lending_pool,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    premium_oracle,
+    pricer,
+    deployer,
+    borrower,
+    lender,
+    token_id,
+    deposit_amount,
+    collateral_amount=500 * 10**18,
+    price=7 * 10**17,
+    premium_bps=200,
+):
+    do_deposit(lending_pool, lender, deposit_amount)
+    setup_premium(premium_oracle, pricer, 1, premium_bps)
     with boa.env.prank(deployer):
+        mock_ctf.mint(borrower, token_id, collateral_amount)
+    with boa.env.prank(borrower):
+        mock_ctf.setApprovalForAll(collateral_manager.address, True)
+    with boa.env.prank(lending_pool.address):
+        collateral_manager.deposit_collateral(borrower, collateral_amount, token_id)
+    with boa.env.prank(pricer):
+        price_feed.push_price(price)
+
+
+def do_borrow(lending_pool, borrower, amount):
+    with boa.env.prank(borrower):
         lending_pool.borrow(amount, borrower)
 
 
@@ -94,13 +122,20 @@ def test_borrow(
     interest_rate_model,
     funded_lender,
     setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
 ):
     deposit_amount = 100_000 * 10**6
     borrow_amount = 10_000 * 10**6
     premium_bps = 200
 
-    do_deposit(lending_pool, lender, deposit_amount)
-    setup_premium(premium_oracle, pricer, 1, premium_bps)
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount, premium_bps=premium_bps,
+    )
 
     borrower_balance_before = mock_usdc.balanceOf(borrower)
 
@@ -110,7 +145,7 @@ def test_borrow(
     premium = (borrow_amount * premium_bps) // MAX_BPS
     net = borrow_amount - interest - premium
 
-    do_borrow(lending_pool, deployer, borrower, borrow_amount)
+    do_borrow(lending_pool, borrower, borrow_amount)
 
     assert lending_pool.total_borrowed() == borrow_amount
     assert mock_usdc.balanceOf(borrower) == borrower_balance_before + net
@@ -132,11 +167,20 @@ def test_borrow_no_liquidity_reverts(
     pricer,
     premium_oracle,
     setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
+    funded_borrower,
 ):
     setup_premium(premium_oracle, pricer, 1)
+    with boa.env.prank(pricer):
+        price_feed.push_price(7 * 10**17)
+    with boa.env.prank(lending_pool.address):
+        collateral_manager.deposit_collateral(borrower, 500 * 10**18, token_id)
 
     with boa.reverts("insufficient liquidity"):
-        do_borrow(lending_pool, deployer, borrower, 10_000 * 10**6)
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
 
 
 def test_borrow_when_paused_reverts(lending_pool, deployer, borrower, setup_market):
@@ -144,7 +188,7 @@ def test_borrow_when_paused_reverts(lending_pool, deployer, borrower, setup_mark
         lending_pool.pause()
 
     with boa.reverts("not open"):
-        do_borrow(lending_pool, deployer, borrower, 10_000 * 10**6)
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
 
 
 # --- Repay ---
@@ -160,21 +204,21 @@ def test_repay(
     premium_oracle,
     collateral_manager,
     mock_ctf,
+    price_feed,
     token_id,
     funded_lender,
-    funded_borrower,
     setup_market,
 ):
     deposit_amount = 100_000 * 10**6
     borrow_amount = 10_000 * 10**6
 
-    do_deposit(lending_pool, lender, deposit_amount)
-    setup_premium(premium_oracle, pricer, 1)
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount,
+    )
 
-    with boa.env.prank(lending_pool.address):
-        collateral_manager.deposit_collateral(borrower, 100 * 10**18, token_id)
-
-    do_borrow(lending_pool, deployer, borrower, borrow_amount)
+    do_borrow(lending_pool, borrower, borrow_amount)
 
     loan = lending_pool.loans(borrower)
     principal = loan[0]
@@ -233,13 +277,21 @@ def test_handle_liquidation_proceeds(
     funded_lender,
     setup_market,
     liquidator_contract,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
 ):
     deposit_amount = 100_000 * 10**6
     borrow_amount = 10_000 * 10**6
 
-    do_deposit(lending_pool, lender, deposit_amount)
-    setup_premium(premium_oracle, pricer, 1)
-    do_borrow(lending_pool, deployer, borrower, borrow_amount)
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount,
+    )
+
+    do_borrow(lending_pool, borrower, borrow_amount)
 
     loan = lending_pool.loans(borrower)
     principal = loan[0]
@@ -265,3 +317,152 @@ def test_handle_liquidation_proceeds(
         assert lending_pool.premium_reserve() == premium_reserve_before - shortfall
     else:
         assert lending_pool.premium_reserve() == 0
+
+
+# --- Borrow edge cases (Issues 2, 3, 12) ---
+
+
+def test_borrow_stale_price_reverts(
+    lending_pool,
+    mock_usdc,
+    lender,
+    borrower,
+    deployer,
+    pricer,
+    premium_oracle,
+    funded_lender,
+    setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
+):
+    deposit_amount = 100_000 * 10**6
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount,
+    )
+    boa.env.time_travel(seconds=3601)
+
+    with boa.reverts("price is stale"):
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
+
+
+def test_borrow_circuit_breaker_reverts(
+    lending_pool,
+    mock_usdc,
+    lender,
+    borrower,
+    deployer,
+    pricer,
+    premium_oracle,
+    funded_lender,
+    setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
+):
+    deposit_amount = 100_000 * 10**6
+    do_deposit(lending_pool, lender, deposit_amount)
+    setup_premium(premium_oracle, pricer, 1)
+
+    with boa.env.prank(deployer):
+        mock_ctf.mint(borrower, token_id, 500 * 10**18)
+    with boa.env.prank(borrower):
+        mock_ctf.setApprovalForAll(collateral_manager.address, True)
+    with boa.env.prank(lending_pool.address):
+        collateral_manager.deposit_collateral(borrower, 500 * 10**18, token_id)
+
+    with boa.env.prank(pricer):
+        price_feed.push_price(5 * 10**17)
+    with boa.env.prank(pricer):
+        price_feed.push_price(2 * 10**17)
+
+    with boa.reverts("circuit breaker active"):
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
+
+
+def test_borrow_no_collateral_reverts(
+    lending_pool,
+    mock_usdc,
+    lender,
+    borrower,
+    deployer,
+    pricer,
+    premium_oracle,
+    funded_lender,
+    setup_market,
+    price_feed,
+    token_id,
+):
+    deposit_amount = 100_000 * 10**6
+    do_deposit(lending_pool, lender, deposit_amount)
+    setup_premium(premium_oracle, pricer, 1)
+    with boa.env.prank(pricer):
+        price_feed.push_price(7 * 10**17)
+
+    with boa.reverts():
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
+
+
+def test_borrow_past_cutoff_reverts(
+    lending_pool,
+    mock_usdc,
+    lender,
+    borrower,
+    deployer,
+    pricer,
+    premium_oracle,
+    funded_lender,
+    setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
+):
+    deposit_amount = 100_000 * 10**6
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount,
+    )
+
+    boa.env.time_travel(seconds=2_000_000_000)
+
+    with boa.reverts("past cutoff"):
+        do_borrow(lending_pool, borrower, 10_000 * 10**6)
+
+
+def test_withdraw_insufficient_liquidity_reverts(
+    lending_pool,
+    mock_usdc,
+    lender,
+    borrower,
+    deployer,
+    pricer,
+    premium_oracle,
+    funded_lender,
+    setup_market,
+    collateral_manager,
+    mock_ctf,
+    price_feed,
+    token_id,
+):
+    deposit_amount = 100_000 * 10**6
+    borrow_amount = 80_000 * 10**6
+
+    setup_borrow_prerequisites(
+        lending_pool, collateral_manager, mock_ctf, price_feed,
+        premium_oracle, pricer, deployer, borrower, lender, token_id,
+        deposit_amount, collateral_amount=2000 * 10**18,
+    )
+
+    do_borrow(lending_pool, borrower, borrow_amount)
+
+    lender_shares = lending_pool.shares(lender)
+
+    with boa.reverts("insufficient liquidity"):
+        with boa.env.prank(lender):
+            lending_pool.withdraw(lender_shares)

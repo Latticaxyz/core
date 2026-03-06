@@ -70,9 +70,6 @@ def test_full_lending_cycle(
     assert lending_pool.total_borrowed() == borrow_amount
     assert lending_pool.premium_reserve() == premium_paid
 
-    with boa.env.prank(lending_pool.address):
-        collateral_manager.set_debt(borrower, borrow_amount)
-
     with boa.env.prank(deployer):
         mock_usdc.mint(borrower, borrow_amount)
     with boa.env.prank(borrower):
@@ -119,9 +116,6 @@ def test_liquidation_cycle(
     borrow_amount = 10_000 * 10**6
     with boa.env.prank(borrower):
         lending_pool.borrow(borrow_amount, borrower)
-
-    with boa.env.prank(lending_pool.address):
-        collateral_manager.set_debt(borrower, borrow_amount)
 
     boa.env.time_travel(seconds=604800 + 1)
     assert liquidator_contract.is_liquidatable(borrower) is True
